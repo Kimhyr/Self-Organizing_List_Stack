@@ -24,7 +24,10 @@ T* Symbol_Tree<T>::search_from(Node const& parent, std::string_view const& query
 	for (Node const* child = parent.child(); child; child = child->next()) {
 		if (query.length() != child->identifier().length())
 			continue;
-		if (query.compare(child->identifier().length()) == 0)
+		int cmp = child->identifier().compare(query);
+		if (cmp > 0)
+			return nullptr;
+		if (cmp == 0)
 			return child->symbol();
 	}
 	return nullptr;
