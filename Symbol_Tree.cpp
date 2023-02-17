@@ -1,22 +1,18 @@
 #include "Symbol_Tree.h"
 
 template<typename T>
-void Symbol_Tree<T>::insert(Node& node, Node& parent) {
-	Node* current = parent.child_;
-	if (!current) {
-		parent.child_ = &node;
-		return;
+void Symbol_Tree<T>::insert(Node& node, Node& parent, bool is_super) noexcept {
+	for (Node* current = parent.child_; current; current = current->next_) {
+		if (node.bias() >= current->bias()) {
+			current->prepend(node);
+			goto Finish;
+		}
+		if (!current->next()) {
+			current->append(node);
+			goto Finish;
+		}
 	}
-	for (; current->next(); current = current->next_) {
-		int cmp = current->identifier().compare(node.identifier());
-		if (cmp > 0)
-			break;
-		else if (cmp == 0)
-			throw std::invalid_argument("Identifier already exists in the parent node.");
-	}
-	node.prior_ = current;
-	node.next_ = current->next_;
-	current->next_ = &node;
+	parent.child_ = &node;
 }
 
 template<typename T>
@@ -24,11 +20,10 @@ T* Symbol_Tree<T>::search_from(Node const& parent, std::string_view const& query
 	for (Node const* child = parent.child(); child; child = child->next()) {
 		if (query.length() != child->identifier().length())
 			continue;
-		int cmp = child->identifier().compare(query);
-		if (cmp > 0)
-			return nullptr;
-		if (cmp == 0)
+		if (child->identifier().compare(query)) {
+			++child->bias_;
 			return child->symbol();
+		}
 	}
 	return nullptr;
 }
@@ -44,4 +39,18 @@ Symbol_Tree<T>::Node::~Node() {
 	while (this->child_)
 		delete this->child_;
 	delete this->symbol_;
+}
+
+template<typename T>
+void Symbol_Tree<T>::Node::append(Node& next) noexcept {
+	next.prior_ = this;
+	next.next_ = this->next_;
+	this->next_ = &next;
+}
+
+template<typename T>
+void Symbol_Tree<T>::Node::prepend(Node& prior) noexcept {
+	prior.next_ = this;
+	prior.prior_ = this->prior_;
+	this->prior_ = &prior;
 }
