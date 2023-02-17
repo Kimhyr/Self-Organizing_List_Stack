@@ -4,10 +4,10 @@
 #include <string_view>
 
 template<typename Symbol_T>
-class SymbolTree {
+class Symbol_Tree {
 private:
 	class Node {
-		friend class SymbolTree;
+		friend class Symbol_Tree;
 	
 	public:
 		Node() = default;
@@ -44,6 +44,3 @@ public:
 	Node* root_;
 
 };
-
-template<typename Symbol_T>
-using SymbolTreeNode = typename SymbolTree<Symbol_T>::Node;
