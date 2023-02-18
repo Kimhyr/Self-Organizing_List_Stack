@@ -1,19 +1,21 @@
-#include "Symbol_Tree.h"
+#include "Biased_Symbol_Tree.h"
 
-template<typename T>
-void Symbol_Tree<T>::insert(Entry& entry, Entry& parent, bool is_super) {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::enter(Entry& entry, Entry& parent, bool is_super) {
 	Entry* curr = parent.child_;
 	if (!curr) {
 		parent.child_ = &entry;
 		goto Finish;
 	}
 	for (;; curr = curr->next()) {
-		if (curr->identifier() == entry.identifier())
+		if (curr->key() == entry.key())
 			throw std::invalid_argument(__FUNCTION__);
-		// NOTE: Multithread this? Maybe a task manager on a separate thread that
-		// executes procedures on objects if the object is not mutex locked.
-		// No. This could be a fun project.
-		if (this->entry_can_decrease_bias(*curr))
+		// THOUGHT: Multithread this?
+		// 	* We can't move an entry when an entry is locked.
+		//		- Unlock when an entry is--no.
+		//	* Would the best thing to do be, if the entry is locked, increase the
+		//	  requested bias?
+		if (this->can_be_biasless(*curr))
 			curr->decrease_bias();
 		if (!curr->next())
 			break;
@@ -22,7 +24,8 @@ void Symbol_Tree<T>::insert(Entry& entry, Entry& parent, bool is_super) {
 		if (curr->bias() > entry.bias()) {
 			curr->append(entry);
 			break;
-		} else if (curr->bias() <= entry.bias()) {
+		} else if (curr->bias() <= entry.bias() ||
+			   !curr->prior()) {
 			curr->prepend(entry);
 			break;
 		}
@@ -32,37 +35,42 @@ Finish:
 		this->super_ = &entry;
 }
 
-template<typename T>
-T* Symbol_Tree<T>::search_from(Entry const& parent, std::string_view const& query) {
+template<typename K, typename V, std::integral B>
+Symbol_Graph<K, V, B>::~Symbol_Graph() {
+	delete this->root_;
+}
+
+template<typename K, typename V, std::integral B>
+V& Symbol_Graph<K, V, B>::get_from(Key_Type const& key, Entry const& parent) {
 	Entry* curr = parent.child_;
 	for (; curr; curr = curr->next_) {
-		if (curr->identifier == query) {
+		if (curr->key() == key) {
 			curr->increase_bias();
 			return curr->symbol();
 		}
-		if (this->entry_can_decrease_bias(*curr))
+		if (this->can_be_biasless(*curr))
 			curr->decrease_bias();
 	}
 	return nullptr;
 }
 
-template<typename T>
-Symbol_Tree<T>::Entry::~Entry() {
+template<typename K, typename V, std::integral B>
+Symbol_Graph<K, V, B>::Entry::~Entry() {
 	this->detach();
 	while (this->child())
 		delete this->child_;
-	delete this->symbol_;
+	delete this->value_;
 }
 
-template<typename T>
-void Symbol_Tree<T>::Entry::append(Entry& next) noexcept {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::Entry::append(This& next) noexcept {
 	next.prior_ = this;
 	next.next_ = this->next_;
 	this->next_ = &next;
 }
 
-template<typename T>
-void Symbol_Tree<T>::Entry::prepend(Entry& prior) noexcept {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::Entry::prepend(This& prior) noexcept {
 	if (this == this->parent()->child())
 		this->parent_->child_ = &prior;
 	prior.next_ = this;
@@ -70,8 +78,8 @@ void Symbol_Tree<T>::Entry::prepend(Entry& prior) noexcept {
 	this->prior_ = &prior;
 }
 
-template<typename T>
-void Symbol_Tree<T>::Entry::detach() noexcept {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::Entry::detach() noexcept {
 	if (this->prior())
 		this->prior_->next_ = this->next_;
 	else if (this->parent() && this == this->parent()->child())
@@ -80,11 +88,11 @@ void Symbol_Tree<T>::Entry::detach() noexcept {
 		this->next_->prior_ = this->prior_;
 }
 
-template<typename T>
-void Symbol_Tree<T>::Entry::increase_bias() noexcept {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::Entry::increase_bias() noexcept {
 	if (this->bias() < 5)
 		++this->bias_;
-	Entry* e = this->prior_;
+	This* e = this->prior_;
 	if (!e)
 		return;
 	do {
@@ -101,11 +109,11 @@ void Symbol_Tree<T>::Entry::increase_bias() noexcept {
 	e->prepend(*this);
 }
 
-template<typename T>
-void Symbol_Tree<T>::Entry::decrease_bias() noexcept {
+template<typename K, typename V, std::integral B>
+void Symbol_Graph<K, V, B>::Entry::decrease_bias() noexcept {
 	if (this->bias())
 		--this->bias_;
-	Entry* e = this->next_;
+	This* e = this->next_;
 	if (!e)
 		return;
 	do {
