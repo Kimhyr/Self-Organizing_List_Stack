@@ -12,3 +12,5 @@ Nodes are organized by the greatest bias at first.
 
 When a node is destroyed, all it's children are destroyed too. Super nodes do
 not get destroyed unless, if there are no more symbols left, they are never used.
+
+In this implementation, a super can not be a sub of a super.
