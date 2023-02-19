@@ -1,3 +1,3 @@
-Build/Main.obj: Source/Main.cpp Source/Symbol_Graph.h
+Build/Main.obj: Source/Main.cpp Source/Symbol_Table.h
 
-Source/Symbol_Graph.h:
+Source/Symbol_Table.h:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <stdexcept>
 
 template<std::equality_comparable Key_T, typename Value_T>
 class Symbol_Table;
@@ -10,12 +11,10 @@ class Symbol {
 	friend class Symbol_Table<Key_T, Value_T>;
 
 public:
+
 	using Key_Type = Key_T;
 	using Value_Type = Value_T;
 	using Bias_Type = unsigned char;
-
-public:
-	static constexpr Bias_Type const& BIAS_CAPACITY = 5;
 
 public:
 	Symbol() = delete;
@@ -53,9 +52,12 @@ public:
 	constexpr Symbol const* next() const noexcept { return this->next_; }
 	constexpr Symbol const* prior() const noexcept { return this->prior_; }
 
+public:
+	void nullify_biases() noexcept;
+
 private:
 	Key_T key_;
-	Value_T value_;
+	Value_T& value_;
 	Bias_Type bias_;
 	Symbol* parent_ = nullptr;
 	Symbol* child_ = nullptr;
@@ -68,10 +70,33 @@ private:
 	void append(Symbol& other) noexcept;
 
 	void increase_bias() noexcept;
-	void decrease_bias() noexcept;
 };
 
 template<std::equality_comparable Key_T, typename Value_T>
 class Symbol_Table {
+public:
+	using Key_Type = Key_T;
+	using Value_Type = Key_T;
+	using Symbol_Type = Symbol<Key_Type, Value_Type>;
+
+public:
+	constexpr Symbol_Table() = default;
+	Symbol_Table(Symbol_Type&&) = delete;
+	Symbol_Table(Symbol_Type const&) = delete;
+
+	Symbol_Table& operator=(Symbol_Table&&) = delete;
+	Symbol_Table& operator=(Symbol_Table const&) = delete;
+	
+	~Symbol_Table() noexcept;
+
+public:
+	constexpr Symbol_Type const& root() const noexcept { return this->root_; }
+
+public:
+	void enter_in(Symbol_Type& symbol, Symbol_Type* parent);
+
+	Value_Type& access_from(Key_Type const& key, Symbol_Type const& parent);
+
 private:
+	Symbol_Type* root_ = nullptr;
 };
