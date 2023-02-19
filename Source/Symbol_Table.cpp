@@ -7,7 +7,6 @@ Symbol<Key_T, Value_T>::~Symbol() noexcept {
 		delete this->child_;
 }
 
-
 template<std::equality_comparable Key_T, typename Value_T>
 void Symbol<Key_T, Value_T>::detach() noexcept {
 	if (this->prior())
