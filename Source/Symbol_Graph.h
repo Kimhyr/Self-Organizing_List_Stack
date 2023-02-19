@@ -8,27 +8,27 @@
 template<typename Key_T, typename Value_T, std::integral Bias_T = std::uint8_t>
 class Symbol_Graph {
 public:
-	class Entry;
+	class Symbol;
 
 	using This = Symbol_Graph;
 	using Key_Type = Key_T;
 	using Value_Type = Value_T;
 	using Bias_Type = Bias_T;
-	using Can_Be_Biasless_Fn = bool (*)(Entry const&);
+	using Can_Be_Biasless_Fn = bool (*)(Symbol const&);
 
 public:
-	class Entry {
+	class Symbol {
 		friend class Symbol_Graph;
 
 	public:
-		using This = Entry;
+		using This = Symbol;
 	
 	public:
-		Entry() = default;
-		constexpr Entry(Key_Type&& key, Value_Type& value, Bias_Type bias) noexcept
-			: key_(key), value_(&value), bias_(bias) {}
+		Symbol() = delete;
+		constexpr Symbol(Key_Type const& key, Value_Type& value, Bias_Type bias) noexcept
+			: key_(key), value_(value), bias_(bias) {}
 		
-		~Entry();
+		~Symbol();
 	
 	public:
 		constexpr Key_Type const& key() const noexcept { return this->key_; }
@@ -61,21 +61,25 @@ public:
 	};
 
 public:
-	constexpr Symbol_Graph(Can_Be_Biasless_Fn fn) noexcept
-		: can_be_biasless(fn) {}
+	constexpr Symbol_Graph(Symbol& root, Can_Be_Biasless_Fn fn) noexcept
+		: root_(root), can_be_biasless(fn) {}
 
 	~Symbol_Graph();
 
 public:
-	void enter(Entry& entry, Entry& parent, bool is_super = false);
-	
-	Value_Type& get_from(Key_Type const& key, Entry const& parent);
+	constexpr Symbol& root() const noexcept { return this->root_; }
+
+public:
+	void enter_in(Symbol& entry, Symbol& parent);
+
+	Value_Type& get_from(Key_Type const& key, Symbol const& parent);
 
 private:
-	Entry* root_ = nullptr;
-	Entry* current_ = nullptr;
-	Entry* super_ = nullptr;
+	Symbol& root_;
 
 public:
 	Can_Be_Biasless_Fn can_be_biasless;
 };
+
+template<typename K, typename V, std::integral B = std::uint8_t>
+using Symbol = typename Symbol_Graph<K, V, B>::Symbol;

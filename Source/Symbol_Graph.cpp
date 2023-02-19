@@ -1,11 +1,11 @@
-#include "Biased_Symbol_Tree.h"
+#include "Symbol_Graph.h"
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::enter(Entry& entry, Entry& parent, bool is_super) {
-	Entry* curr = parent.child_;
+void Symbol_Graph<K, V, B>::enter_in(Symbol& entry, Symbol& parent) {
+	Symbol* curr = parent.child_;
 	if (!curr) {
 		parent.child_ = &entry;
-		goto Finish;
+		return;
 	}
 	for (;; curr = curr->next()) {
 		if (curr->key() == entry.key())
@@ -30,9 +30,6 @@ void Symbol_Graph<K, V, B>::enter(Entry& entry, Entry& parent, bool is_super) {
 			break;
 		}
 	}
-Finish:
-	if (is_super)
-		this->super_ = &entry;
 }
 
 template<typename K, typename V, std::integral B>
@@ -41,8 +38,8 @@ Symbol_Graph<K, V, B>::~Symbol_Graph() {
 }
 
 template<typename K, typename V, std::integral B>
-V& Symbol_Graph<K, V, B>::get_from(Key_Type const& key, Entry const& parent) {
-	Entry* curr = parent.child_;
+V& Symbol_Graph<K, V, B>::get_from(Key_Type const& key, Symbol const& parent) {
+	Symbol* curr = parent.child_;
 	for (; curr; curr = curr->next_) {
 		if (curr->key() == key) {
 			curr->increase_bias();
@@ -55,22 +52,22 @@ V& Symbol_Graph<K, V, B>::get_from(Key_Type const& key, Entry const& parent) {
 }
 
 template<typename K, typename V, std::integral B>
-Symbol_Graph<K, V, B>::Entry::~Entry() {
+Symbol_Graph<K, V, B>::Symbol::~Symbol() {
 	this->detach();
 	while (this->child())
 		delete this->child_;
-	delete this->value_;
+	this->value_.~V();
 }
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::Entry::append(This& next) noexcept {
+void Symbol_Graph<K, V, B>::Symbol::append(This& next) noexcept {
 	next.prior_ = this;
 	next.next_ = this->next_;
 	this->next_ = &next;
 }
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::Entry::prepend(This& prior) noexcept {
+void Symbol_Graph<K, V, B>::Symbol::prepend(This& prior) noexcept {
 	if (this == this->parent()->child())
 		this->parent_->child_ = &prior;
 	prior.next_ = this;
@@ -79,7 +76,7 @@ void Symbol_Graph<K, V, B>::Entry::prepend(This& prior) noexcept {
 }
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::Entry::detach() noexcept {
+void Symbol_Graph<K, V, B>::Symbol::detach() noexcept {
 	if (this->prior())
 		this->prior_->next_ = this->next_;
 	else if (this->parent() && this == this->parent()->child())
@@ -89,7 +86,7 @@ void Symbol_Graph<K, V, B>::Entry::detach() noexcept {
 }
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::Entry::increase_bias() noexcept {
+void Symbol_Graph<K, V, B>::Symbol::increase_bias() noexcept {
 	if (this->bias() < 5)
 		++this->bias_;
 	This* e = this->prior_;
@@ -110,7 +107,7 @@ void Symbol_Graph<K, V, B>::Entry::increase_bias() noexcept {
 }
 
 template<typename K, typename V, std::integral B>
-void Symbol_Graph<K, V, B>::Entry::decrease_bias() noexcept {
+void Symbol_Graph<K, V, B>::Symbol::decrease_bias() noexcept {
 	if (this->bias())
 		--this->bias_;
 	This* e = this->next_;
