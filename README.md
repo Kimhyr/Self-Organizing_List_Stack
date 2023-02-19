@@ -1,6 +1,7 @@
-# Symbol graph
+# Self-Organizing List Stack
 
-An implementation of a [symbol table](https://en.wikipedia.org/wiki/Symbol_table).
+A DSA for a compiler's [symbol table](https://en.wikipedia.org/wiki/Symbol_table).
 
-The Symbol Graph is really just a [self-organizing
-list](https://en.wikipedia.org/wiki/Self-organizing_list).
+The DSA is really just a version of a [self-organizing
+list](https://en.wikipedia.org/wiki/Self-organizing_list) except each list
+(node) can stack ontop of eachother.
