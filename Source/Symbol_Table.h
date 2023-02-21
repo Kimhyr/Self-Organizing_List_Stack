@@ -1,9 +1,11 @@
+// This is source code is put inside the header because I keep getting an
+// unkonwn symbol error.
+
 #pragma once
 
 #include <concepts>
 #include <stdexcept>
-
-#include <iostream>
+#include <memory>
 
 namespace Klang {
 
@@ -14,105 +16,114 @@ public:
 		friend class Symbol_Table<Key_T, Value_T>;
 	
 	public:
+		using This_Type = Symbol;
 		using Key_Type = Key_T;
 		using Value_Type = Value_T;
 		using Bias_Type = unsigned char;
 	
 	public:
 		Symbol() = delete;
-		Symbol(Symbol&&) = delete;
-		Symbol(Symbol const&) = delete;
+		Symbol(This_Type&&) = delete;
+		Symbol(This_Type const&) = delete;
 		
-		Symbol& operator=(Symbol&&) = delete;
-		Symbol& operator=(Symbol const&) = delete;
+		Symbol& operator=(This_Type&&) = delete;
+		Symbol& operator=(This_Type const&) = delete;
 		
-		constexpr Symbol(Key_Type const& key, Value_Type& value, Bias_Type bias = 0)
-			: key_(key), value_(value), bias_(bias), parent_(nullptr),
+		constexpr Symbol(Key_Type const& key, Value_Type const& value,
+				 This_Type* parent = nullptr, Bias_Type bias = 0) noexcept
+			: key_(key), value_(value), bias_(bias), parent_(parent),
 			  child_(nullptr), prior_(nullptr), next_(nullptr) {}
 	
-		~Symbol() noexcept {
+		~Symbol() {
 			this->detach();
-			std::cout << "NEXT CHILD: " << this->child()->next() << '\n';
 			while (this->child() != nullptr)
 				delete this->child_;
+			// TODO: Deleters.
 		}
 	
 	public:
-		constexpr Key_T const& key() const noexcept { return this->key_; }
-		constexpr Value_T& value() noexcept { return this->value_; }
+		constexpr Key_Type const& key() const noexcept { return this->key_; }
+		
+		constexpr Value_Type& value() noexcept { return this->value_; }
+		constexpr Value_Type const& value() const noexcept { return this->value_; }
 	
 		constexpr Bias_Type bias() const noexcept { return this->bias_; }
 		
-		constexpr Symbol const* parent() const noexcept { return this->parent_; }
-		constexpr Symbol const* child() const noexcept { return this->child_; }
+		constexpr This_Type* parent() noexcept { return this->parent_; }
+		constexpr This_Type const* parent() const noexcept { return this->parent_; }
+		constexpr This_Type const* child() const noexcept { return this->child_; }
 		
-		constexpr Symbol const* prior() const noexcept { return this->prior_; }
-		constexpr Symbol const* next() const noexcept { return this->next_; }
+		constexpr This_Type const* prior() const noexcept { return this->prior_; }
+		constexpr This_Type const* next() const noexcept { return this->next_; }
 	
 	public:
 		void nullify_biases() noexcept {
-			for (Symbol* curr = this->child_; curr; curr = curr->next_)
+			for (This_Type* curr = this->child_; curr; curr = curr->next_)
 				curr->bias_ = 0;
 		}
 	
 	private:
 		Key_Type key_;
-		Value_Type& value_;
+		Value_Type value_;
 		Bias_Type bias_;
-		Symbol* parent_ = nullptr;
-		Symbol* child_ = nullptr;
-		Symbol* prior_ = nullptr;
-		Symbol* next_ = nullptr;
+		This_Type* parent_ = nullptr;
+		This_Type* child_ = nullptr;
+		This_Type* prior_ = nullptr;
+		This_Type* next_ = nullptr;
 	
 	private:
 		void detach() noexcept {
-			if (this->prior() != nullptr)
+			if (this->prior())
 				this->prior_->next_ = this->next_;
-			else if (this->parent() != nullptr)
+			else if (this->parent())
 				this->parent_->child_ = this->next_;
-			if (this->next() != nullptr)
+			if (this->next())
 				this->next_->prior_ = this->prior_;
 		}
 		
-		void prepend(Symbol& other) noexcept {
+		void prepend(This_Type& other) noexcept {
 			other.prior_ = this->prior_;
 			other.next_ = this;
-			if (this->prior() != nullptr)
+			if (this->prior())
 				this->prior_->next_ = &other;
 			else this->parent_->child_ = &other;
 			this->prior_ = &other;
 		}
 		
-		void append(Symbol& other) noexcept {
+		void append(This_Type& other) noexcept {
 			other.prior_ = this;
 			other.next_ = this->next_;
-			if (this->next() != nullptr)
+			if (this->next())
 				this->next_->prior_ = &other;
 			this->next_ = &other;
 		}
 	
 		void increase_bias() noexcept {
 			++this->bias_;
-			Symbol* curr = this->prior_;
-			if (curr == nullptr)
+			This_Type* curr = this->prior_;
+			if (!curr)
 				return;
 			this->detach();
-			do {
-				if (curr->bias() == this->bias()) {
-					curr = curr->prior_;
-					continue;
+			for (;; curr = curr->prior_) {
+				if (curr->bias() > this->bias()) {
+					curr->append(*this);
+					return;
 				}
-				curr->append(*this);
-				return;
-			} while (curr != nullptr);
-			curr->prepend(*this);
+				if (!curr->prior()) {
+					curr->prepend(*this);
+					return;
+				}
+			}
 		}
 	};
 
 public:
+	using This_Type = Symbol_Table;
 	using Key_Type = Key_T;
 	using Value_Type = Value_T;
 	using Symbol_Type = Symbol;
+	// TODO: Figure out a better name for this:
+	using Append_If_Type = bool (*)(Symbol_Type const& entry, Symbol_Type const& child);
 
 public:
 	constexpr Symbol_Table() = default;
@@ -128,16 +139,22 @@ public:
 
 public:
 	constexpr Symbol* root() noexcept { return this->root_; }
+	constexpr Symbol const* root() const noexcept { return this->root_; }
 
 public:
-	void enter(Symbol& entry, Symbol* parent = nullptr) {
-		if (!parent) {
+	static constexpr Append_If_Type default_append_if =
+		[](Symbol_Type const& entry, Symbol_Type const& child) noexcept {
+		return child.bias() > entry.bias();
+	};
+
+	void enter(Symbol& entry, Append_If_Type append_if = This_Type::default_append_if) {
+		if (!entry.parent()) {
 			this->root_ = &entry;
 			return;
 		}
-		Symbol* child = parent->child_;
+		Symbol* child = entry.parent_->child_;
 		if (!child) {
-			parent->child_ = &entry;
+			entry.parent_->child_ = &entry;
 			return;
 		}
 		for (;; child = child->next_) {
@@ -146,28 +163,25 @@ public:
 			if (!child->next())
 				break;
 		}
-		// We are now at the last child.
-		// Reverse to find biased position.
-		entry.parent_ = parent;
-		std::cout << "parent: " << parent << '\n';
 		for (;; child = child->prior_) {
-			if (child->bias() <= entry.bias()) {
-				if (!child->prior())
-					break;
-				continue;
+			if (append_if(*child, entry)) {
+				child->append(entry);
+				return;
 			}
-			child->append(entry);
-			return;
+			if (!child->prior())
+				break;
 		}
 		child->prepend(entry);
 	}
 
-	Value_Type& access_from(Key_Type const& key, Symbol const& parent) {
-		Symbol* curr = parent.child_; 
+	// If `parent` is `nullptr`, access an entry in `this->root_`; otherwise,
+	// access an entry in `parent->child_`.
+	Value_Type& access(Key_Type const& key, Symbol* parent = nullptr) {
+		Symbol* curr = (parent != nullptr)
+			? parent->child_ : this->root_;
 		for (; curr; curr = curr->next_) {
-			if (curr->key() != key)
-				continue;
-			return curr->value();
+			if (curr->key() == key)
+				return curr->value();
 		}
 		throw std::invalid_argument(__FUNCTION__);
 	}

@@ -5,28 +5,17 @@
 #include <iostream>
 
 using namespace Klang;
-using Table_Type = Symbol_Table<int, char>;
+using Table_Type = Symbol_Table<std::string, char const&>;
 using Symbol_Type = Table_Type::Symbol_Type;
 
 int main() {
-	char* values = new char[32];
-	values[0] = 'p';
-	values[1] = 'e';
-	values[2] = 'e';
-	
+	char values[] = {'p', 'e', 'e'};
 	Table_Type table;
+	table.enter(*new Symbol_Type("ROOT", values[0]));
+	auto sym = new Symbol_Type("CHILD", values[1], table.root());
+	table.enter(*sym);
 	
-	// Set the root.
-	table.enter(*new Symbol_Type(0, values[0]));
-	
-	// This entry should be a child of the root with no next and prior.
-	table.enter(*new Symbol_Type(21, values[0]), table.root());
-
-	// table.enter(*new Symbol_Type(2, values[1]), table.root());
-	// table.enter(*new Symbol_Type(3, values[2]), table.root());
-	char& value = table.access_from(21, *table.root());
+	char const& value = table.access("CHILD", table.root());
 	std::cout << "RETURNED VALUE: " << value << '\n';
-	if (value == values[0])
-		return 0;
-	return 1;
+	return 0;
 }
