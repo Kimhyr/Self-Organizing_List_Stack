@@ -14,7 +14,6 @@ int main() {
 	table.enter(*new Symbol_Type("ROOT", values[0]));
 	auto sym = new Symbol_Type("CHILD", values[1], table.root());
 	table.enter(*sym);
-	
 	char const& value = table.access("CHILD", table.root());
 	std::cout << "RETURNED VALUE: " << value << '\n';
 	return 0;

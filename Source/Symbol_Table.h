@@ -12,6 +12,11 @@ namespace Klang {
 template<std::equality_comparable Key_T, typename Value_T>
 class Symbol_Table {
 public:
+	using This_Type = Symbol_Table;
+	using Key_Type = Key_T;
+	using Value_Type = Value_T;
+
+public:
 	class Symbol {
 		friend class Symbol_Table<Key_T, Value_T>;
 	
@@ -31,14 +36,12 @@ public:
 		
 		constexpr Symbol(Key_Type const& key, Value_Type const& value,
 				 This_Type* parent = nullptr, Bias_Type bias = 0) noexcept
-			: key_(key), value_(value), bias_(bias), parent_(parent),
-			  child_(nullptr), prior_(nullptr), next_(nullptr) {}
-	
+			: key_(key), value_(value), bias_(bias), parent_(parent) {}
+
 		~Symbol() {
 			this->detach();
 			while (this->child() != nullptr)
 				delete this->child_;
-			// TODO: Deleters.
 		}
 	
 	public:
@@ -118,15 +121,12 @@ public:
 	};
 
 public:
-	using This_Type = Symbol_Table;
-	using Key_Type = Key_T;
-	using Value_Type = Value_T;
 	using Symbol_Type = Symbol;
 	// TODO: Figure out a better name for this:
 	using Append_If_Type = bool (*)(Symbol_Type const& entry, Symbol_Type const& child);
 
 public:
-	constexpr Symbol_Table() = default;
+	Symbol_Table() = default;
 	Symbol_Table(Symbol&&) = delete;
 	Symbol_Table(Symbol const&) = delete;
 
